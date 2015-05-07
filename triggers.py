@@ -10,15 +10,28 @@ import gspread, random
 
 class TriggerSheet:
     def __init__(self, gclient, title=None, key=None):
-        if title:
-            self.sheet = gclient.open(title)
-        elif key:
-            self.sheet = gclient.open_by_key(key)
-        self.events = self.worksheet().col_values(1)
-    def worksheet(self):
-        wks = self.sheet.sheet1
-        assert wks.title == "Trigger Events"
+        try: # trying to find unicode error
+            if title:
+                self.sheet = gclient.open(title)
+            elif key:
+                self.sheet = gclient.open_by_key(key)
+            self.events = self.worksheet("Trigger Events", 1).col_values(1)
+        except UnicodeDecodeError as e:
+            raise Exception("Error opening spreadsheet: %s" % e)
+            
+    def worksheet(self, title, num=None):
+        if num is not None:
+            wks = getattr(self.sheet, "sheet%i" % num)
+        else:
+            # try to find sheet by title
+            sheets = dir(self.sheet) # grab all methods from self.sheet
+            for a in sheets:
+                if getattr(self.sheet, a).title == title:
+                    wks = a
+                    break
+        assert wks.title == title
         return wks
+        
     def event(self, num=None):
         length = len(self.events)
 
@@ -35,4 +48,8 @@ class TriggerSheet:
         # if num is not in the possible indexes, raise error
         if num not in range(1,length):
             raise IndexError('bad event number')
-        return "(%d) %s" % (num, self.events[num-1])
+        try: # trying to find the unicode error
+            return "(%d) %s" % (num, self.events[num-1])
+        except UnicodeDecodeError as e:
+            raise Exception("Problem returning trigger [%s]: %s" % (num, e))
+
